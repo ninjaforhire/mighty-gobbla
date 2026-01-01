@@ -37,7 +37,62 @@ def read_root():
 
 
 
-@app.post("/process_file_path")
+@app.post("/upload_files")
+async def upload_files_endpoint(files: List[UploadFile] = File(...)):
+    results = []
+    for file in files:
+        try:
+            # Save temporary file
+            temp_path = f".tmp/{file.filename}"
+            os.makedirs(".tmp", exist_ok=True)
+            
+            with open(temp_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+            
+            # Process the file
+            processed_info = process_document(temp_path)
+            
+            # Generate Naming Convention (for Notion & History)
+            # Format: YYMMDD-Store-Payment
+            ext = os.path.splitext(file.filename)[1]
+            base_new_name = f"{processed_info['date']}-{processed_info['store']}-{processed_info['payment']}"
+            base_new_name = base_new_name.replace("/", "").replace(":", "")
+            new_name = f"{base_new_name}{ext}"
+            
+            # For uploads, we can't rename the source file on the phone, 
+            # but we use the correct name for Notion/History.
+            processed_info['filename'] = new_name
+
+            # Notion Check
+            notion_result = None
+            history_added = False
+            from settings import get_setting
+            if get_setting("notion_enabled"):
+                from notion_integration import add_to_notion_expenses
+                notion_result = add_to_notion_expenses(processed_info)
+                
+                # Only add to history if success
+                if notion_result and notion_result.get('status') == 'success':
+                     add_history_entry(new_name, processed_info, directory="Mobile Upload")
+                     history_added = True
+            else:
+                add_history_entry(new_name, processed_info, directory="Mobile Upload")
+                history_added = True
+            
+            results.append({
+                "original": file.filename,
+                "new": new_name,
+                "status": "gobbled", 
+                "data": processed_info,
+                "notion_status": notion_result,
+                "history_added": history_added
+            })
+
+        except Exception as e:
+            logger.error(f"Error processing {file.filename}: {e}")
+            results.append({"original": file.filename, "status": "error", "message": str(e)})
+
+    return {"results": results}
 async def process_file_path_endpoint(file_path: str = Form(...)):
     """Process a single local file in-place."""
     # Strip quotes just in case backend receives them

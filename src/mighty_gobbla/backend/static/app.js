@@ -10,10 +10,50 @@ function switchTab(tab) {
 
     document.getElementById(`${tab}-screen`).classList.add('active');
 
-    // 0 = Gobble, 1 = Settings
+    // 0 = Gobble, 1 = Mobile, 2 = Settings
     const btns = document.querySelectorAll('.tab-btn');
     if (tab === 'gobble') btns[0].classList.add('active');
-    else btns[1].classList.add('active');
+    else if (tab === 'mobile') btns[1].classList.add('active');
+    else btns[2].classList.add('active');
+}
+
+// Mobile Camera Logic
+document.addEventListener('DOMContentLoaded', () => {
+    const camInput = document.getElementById('camera-input');
+    if (camInput) {
+        camInput.addEventListener('change', async (e) => {
+            if (e.target.files.length > 0) {
+                await uploadMobileFile(e.target.files[0]);
+            }
+        });
+    }
+});
+
+async function uploadMobileFile(file) {
+    showOverlay(true);
+    const formData = new FormData();
+    formData.append('files', file); // Backend expects list 'files'
+
+    try {
+        const response = await fetch(`${API_URL}/upload_files`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        console.log(result);
+
+        if (result.results && result.results.length > 0) {
+            // Mobile: Just show the first result popup
+            handleResultItem(result.results[0]);
+        }
+        loadHistory();
+    } catch (error) {
+        alert("Mobile Upload Error: " + error);
+    } finally {
+        showOverlay(false);
+        // Reset input so we can snap again
+        document.getElementById('camera-input').value = '';
+    }
 }
 
 // Settings Logic

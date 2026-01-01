@@ -27,11 +27,12 @@
 
             <!-- Tabs -->
             <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('gobble')">Let's Gobble!</button>
-                <button class="tab-btn" onclick="switchTab('settings')">Cooking Settings 🧑‍🍳</button>
+                <button class="tab-btn active" onclick="switchTab('gobble')">Local PC</button>
+                <button class="tab-btn" onclick="switchTab('mobile')">Mobile 📷</button>
+                <button class="tab-btn" onclick="switchTab('settings')">Settings 🧑‍🍳</button>
             </div>
 
-            <!-- Gobble Screen (Unified) -->
+            <!-- Gobble Screen (PC) -->
             <div id="gobble-screen" class="screen active">
 
                 <div class="mode-switch" style="margin-bottom: 30px;">
@@ -62,6 +63,27 @@
                     </div>
                 </div>
 
+            </div>
+
+            <!-- Mobile Screen -->
+            <div id="mobile-screen" class="screen">
+                <div class="mode-switch" style="text-align: center; padding: 40px 20px;">
+                    <h3 style="margin-bottom: 20px;">Snap a Receipt!</h3>
+
+                    <!-- Hidden Input -->
+                    <input type="file" id="camera-input" capture="environment" accept="image/*" style="display:none;">
+
+                    <!-- Big Button -->
+                    <button class="gobble-btn"
+                        style="font-size: 1.5rem; padding: 20px 40px; width: 100%; border-radius: 20px;"
+                        onclick="document.getElementById('camera-input').click()">
+                        📸 OPEN CAMERA
+                    </button>
+
+                    <p class="small-text" style="color: #aaa; margin-top: 20px;">
+                        Taking a photo will upload it to your server,<br>process it, and save to Notion.
+                    </p>
+                </div>
             </div>
 
             <!-- Settings Screen -->
