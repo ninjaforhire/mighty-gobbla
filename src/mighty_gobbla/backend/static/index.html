@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIGHTY GOBBLA!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Roboto:wght@400;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+    <div class="app-container">
+        <!-- Header / Logo Area -->
+        <div class="header">
+            <h1 class="title">MIGHTY GOBBLA! <span class="version-tag">v1.0 Official</span></h1>
+            <div class="turkey-container" id="turkey-mascot">
+                <div class="emoji-turkey">🦃</div>
+                <div class="thought-bubble">HUNGRY FOR DOCS!</div>
+            </div>
+        </div>
+
+        <!-- Main Interaction Area -->
+        <div class="control-panel">
+
+            <!-- Tabs -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('gobble')">Let's Gobble!</button>
+                <button class="tab-btn" onclick="switchTab('settings')">Cooking Settings 🧑‍🍳</button>
+            </div>
+
+            <!-- Gobble Screen (Unified) -->
+            <div id="gobble-screen" class="screen active">
+
+                <div class="mode-switch" style="margin-bottom: 30px;">
+                    <h3>Single File (Rename)</h3>
+                    <p class="small-text" style="color: #ccc; margin-bottom: 10px;">
+                        Full path to one receipt file.
+                    </p>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="single-file-path" placeholder="C:\Path\To\Receipt.pdf" class="input-text"
+                            style="flex-grow:1;">
+                        <button class="gobble-btn" style="width: auto; padding: 0 20px;"
+                            onclick="gobbleSinglePath()">GOBBLE!</button>
+                    </div>
+                </div>
+
+                <hr style="border: 1px solid rgba(255,255,255,0.1);">
+
+                <div class="mode-switch" style="margin-top: 30px;">
+                    <h3>Folder (Batch)</h3>
+                    <p class="small-text" style="color: #ccc; margin-bottom: 10px;">
+                        Process all files in a folder.
+                    </p>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="folder-path" placeholder="C:\Path\To\Folder" class="input-text"
+                            style="flex-grow:1;">
+                        <button class="gobble-btn" style="width: auto; padding: 0 20px;"
+                            onclick="gobbleFolder()">GOBBLE!</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Settings Screen -->
+            <div id="settings-screen" class="screen">
+                <h2>Cooking Settings</h2>
+                <div class="settings-panel">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="notion-toggle" onchange="saveSettings()">
+                        <span class="slider"></span>
+                        Gobble to Notion?
+                    </label>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Results / History Area -->
+        <div class="history-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Gobbled to Notion (Last 200)</h2>
+                <button class="clear-btn" onclick="clearHistory()">Clear History</button>
+            </div>
+            <div class="table-container">
+                <table id="history-table">
+                    <thead>
+                        <tr>
+                            <th>Filename (New)</th>
+                            <th>Date</th>
+                            <th>Store</th>
+                            <th>Payment</th>
+                            <th>Original Path</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="history-body">
+                        <!-- Rows injected here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button onclick="prevPage()">Prev</button>
+                <span id="page-indicator">Page 1</span>
+                <button onclick="nextPage()">Next</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Processing Overlay -->
+    <div id="overlay" class="overlay hidden">
+        <div class="overlay-content">
+            <div class="turkey-eating">🦃💨📄</div>
+            <h2>GOBBLING...</h2>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>

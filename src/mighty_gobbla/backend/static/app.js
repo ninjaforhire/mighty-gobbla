@@ -1,0 +1,231 @@
+const API_URL = ""; // Relative path
+
+
+let currentPage = 1;
+
+// Tabs
+function switchTab(tab) {
+    document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+    document.getElementById(`${tab}-screen`).classList.add('active');
+
+    // 0 = Gobble, 1 = Settings
+    const btns = document.querySelectorAll('.tab-btn');
+    if (tab === 'gobble') btns[0].classList.add('active');
+    else btns[1].classList.add('active');
+}
+
+// Settings Logic
+async function loadSettings() {
+    try {
+        const res = await fetch(`${API_URL}/settings`);
+        const data = await res.json();
+
+        const toggle = document.getElementById('notion-toggle');
+        if (toggle) toggle.checked = data.notion_enabled;
+    } catch (e) {
+        console.error("Failed to load settings", e);
+    }
+}
+
+async function saveSettings() {
+    const enabled = document.getElementById('notion-toggle').checked;
+
+    const formData = new FormData();
+    formData.append('notion_enabled', enabled);
+    // Token/DB ID are managed via backend config file now
+
+    await fetch(`${API_URL}/settings`, {
+        method: 'POST',
+        body: formData
+    });
+    // Silent save or small toast? The toggle animation is feedback enough usually.
+    // alert("Settings Saved! 🍳"); 
+}
+
+// Drag & Drop logic removed.
+
+// Gobble Actions (Single Path)
+async function gobbleSinglePath() {
+    // We need to parse details back out, or we should have returned them structured.
+    // Hack: The item object itself doesn't have raw metadata unless we passed it back. 
+    // The backend only returned 'filename', 'new', 'status'.
+    // We need the backend to return the parsed metadata in the result too!
+    // But wait, the 'details' in duplicate warning had the info. 
+    // Let's assume we can't do this purely client side without the data.
+
+    // REVISIT: We need `process_document` data in the response `results`.
+    // I will modify this function to assume `item.data` exists (I will add it in main.py in a sec).
+    if (!item.data) return alert("Cannot force add: data missing");
+
+    const formData = new FormData();
+    formData.append('filename', item.new);
+    formData.append('date', item.data.date);
+    formData.append('store', item.data.store);
+    formData.append('payment', item.data.payment);
+    formData.append('amount', item.data.amount);
+
+    try {
+        await fetch(`${API_URL}/notion/force_add`, {
+            method: 'POST',
+            body: formData
+        });
+    } catch (e) {
+        console.error(e);
+        alert("Force add failed");
+    }
+}
+
+async function gobbleSinglePath() {
+    const path = document.getElementById('single-file-path').value;
+    if (!path) return alert("Enter a file path!");
+
+    const cleanPath = path.replace(/"/g, '');
+
+    showOverlay(true);
+    const formData = new FormData();
+    formData.append('file_path', cleanPath);
+
+    try {
+        const response = await fetch(`${API_URL}/process_file_path`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        console.log(result);
+        if (result.results && result.results[0]) {
+            await handleResultItem(result.results[0]);
+        } else {
+            alert("Something went wrong. Check console.");
+        }
+    } catch (error) {
+        alert("Error: " + error);
+    } finally {
+        showOverlay(false);
+    }
+}
+
+async function gobbleFolder() {
+    const path = document.getElementById('folder-path').value;
+    if (!path) return alert("Where is the folder?");
+
+    const cleanPath = path.replace(/"/g, '');
+
+    showOverlay(true);
+    const formData = new FormData();
+    formData.append('folder_path', cleanPath);
+
+    try {
+        const response = await fetch(`${API_URL}/process_folder`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        console.log(result);
+
+        let warnings = 0;
+        if (result.results) {
+            for (const item of result.results) {
+                if (item.notion_status && item.notion_status.status === 'duplicate_suspected') {
+                    warnings++;
+                }
+            }
+        }
+
+        let msg = `Finished! Processed ${result.results.length} files.`;
+        if (warnings > 0) {
+            msg += `\n⚠️ ${warnings} Potential Notion Duplicates found. switch to Single File mode to review/force add.`;
+        }
+        alert(msg);
+        loadHistory();
+    } catch (error) {
+        alert("Error: " + error);
+    } finally {
+        showOverlay(false);
+    }
+}
+
+async function handleResultItem(item) {
+    if (item.status === 'error') {
+        alert("Error: " + item.message);
+    } else {
+        let msg = `Gobbled: ${item.new}`;
+
+        if (item.notion_status) {
+            if (item.notion_status.status === 'success') {
+                msg += "\n✅ Saved to Notion!";
+            } else if (item.notion_status.status === 'duplicate_suspected') {
+                if (confirm(`⚠️ DUPLICATE SUSPECTED for ${item.new}!\n\n${item.notion_status.message}\n\n${item.notion_status.details}\n\nAdd to Notion anyway?`)) {
+                    await forceAddNotion(item);
+                    msg += "\n✅ Force Added to Notion!";
+                } else {
+                    msg += "\n❌ Notion Skipped (Duplicate)";
+                }
+            } else {
+                msg += `\n❌ Notion Error: ${item.notion_status.message}`;
+            }
+        }
+        alert(msg);
+        loadHistory();
+    }
+}
+async function loadHistory() {
+    try {
+        const res = await fetch(`${API_URL}/history?page=${currentPage}&limit=10`);
+        const data = await res.json();
+        renderHistory(data.items);
+        document.getElementById('page-indicator').innerText = `Page ${currentPage}`;
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+function renderHistory(items) {
+    const tbody = document.getElementById('history-body');
+    tbody.innerHTML = items.map(item => `
+        <tr>
+            <td>${item.filename}</td>
+            <td>${item.details.date}</td>
+            <td>${item.details.store}</td>
+            <td>${item.details.payment}</td>
+            <td>${item.directory.slice(0, 30)}...</td>
+            <td><button class="del-btn" onclick="deleteEntry(${item.id})">🗑️</button></td>
+        </tr>
+    `).join('');
+}
+
+async function deleteEntry(id) {
+    if (!confirm("Burp? Delete this?")) return;
+    await fetch(`${API_URL}/history/${id}`, { method: 'DELETE' });
+    loadHistory();
+}
+
+async function clearHistory() {
+    if (!confirm("Wait! Delete ALL history?")) return;
+    await fetch(`${API_URL}/history`, { method: 'DELETE' });
+    loadHistory();
+}
+
+function nextPage() {
+    currentPage++;
+    loadHistory();
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        loadHistory();
+    }
+}
+
+// Overlay
+function showOverlay(show) {
+    const el = document.getElementById('overlay');
+    if (show) el.classList.remove('hidden');
+    else el.classList.add('hidden');
+}
+
+// Init
+loadHistory();
+loadSettings();
