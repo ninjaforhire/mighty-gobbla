@@ -1,10 +1,13 @@
 import re
-from datetime import datetime
 import os
+import numpy as np
+from datetime import datetime
+
 try:
-    from PIL import Image, ImageOps, ImageEnhance
+    from PIL import Image
     import pytesseract
     from pdf2image import convert_from_path
+    import cv2
 except ImportError:
     pass
 
@@ -13,52 +16,104 @@ try:
 except ImportError:
     print("pypdf not installed.")
 
-# Config for Tesseract if likely installed
+# Config for Tesseract
 default_tesseract = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 if os.path.exists(default_tesseract):
     pytesseract.pytesseract.tesseract_cmd = default_tesseract
 
-def preprocess_image(image_path):
+def smart_crop_receipt(image_path):
     """
-    Enhance image for better OCR results:
-    - Grayscale
-    - Contrast Enhancement
-    - Resize (if too small)
+    Uses OpenCV to find the receipt contour and crop it, removing the background.
     """
     try:
-        img = Image.open(image_path)
+        # Read image
+        image = cv2.imread(image_path)
+        if image is None: return Image.open(image_path)
         
-        # 1. Convert to Grayscale
-        img = img.convert('L')
+        # Resize for faster processing if huge
+        ratio = image.shape[0] / 500.0
+        orig = image.copy()
+        image = cv2.resize(image, (int(image.shape[1]/ratio), 500))
+
+        # Convert to grayscale & Blur
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        # Edge Detection
+        edged = cv2.Canny(gray, 75, 200)
+
+        # Find Contours
+        cnts = cv2.findContours(edged.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = sorted(cnts[0] if len(cnts) == 2 else cnts[1], key=cv2.contourArea, reverse=True)[:5] # Get largest
+
+        screenCnt = None
+        for c in cnts:
+            # Approximate the contour
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.02 * peri, True)
+
+            # If our approximated contour has 4 points, we assume we found the receipt
+            if len(approx) == 4:
+                screenCnt = approx
+                break
         
-        # 2. Enhance Contrast (Limit Noise)
-        enhancer = ImageEnhance.Contrast(img)
-        img = enhancer.enhance(2.0) # Double the contrast
+        if screenCnt is None:
+            # Fallback: Just simple thresholding if no clear rect found
+            return Image.open(image_path)
+
+        # Transform Logic (Deskew) would go here, but simple bounding rect is safer/faster
+        x, y, w, h = cv2.boundingRect(screenCnt)
         
-        # 3. Resize if width is small (e.g. < 1000px) typical for phone thumbnails but we want full res
-        # If the image came from a phone it might be huge, or small. 
-        # Tesseract likes characters to be ~30px high. 
-        # A receipt photo usually benefits from scaling up if it's low res.
-        w, h = img.size
-        if w < 1000:
-            new_w = w * 2
-            new_h = h * 2
-            img = img.resize((int(new_w), int(new_h)), Image.Resampling.LANCZOS)
-            
-        return img
+        # Scale back up to original size
+        x = int(x * ratio)
+        y = int(y * ratio)
+        w = int(w * ratio)
+        h = int(h * ratio)
+        
+        # Crop
+        cropped = orig[y:y+h, x:x+w]
+        
+        # Convert to PIL for Tesseract
+        return Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
+        
+    except Exception as e:
+        print(f"Smart Crop Failed: {e}")
+        return Image.open(image_path)
+
+def preprocess_image(image_path):
+    """
+    Pipeline: 
+    1. Smart Crop (Remove Granite Background)
+    2. Binarize (Black text on White bg)
+    """
+    try:
+        # 1. Smart Crop
+        pil_img = smart_crop_receipt(image_path)
+        
+        # 2. Convert to CV2 format for thresholding
+        open_cv_image = np.array(pil_img) 
+        # Convert RGB to BGR 
+        open_cv_image = open_cv_image[:, :, ::-1].copy() 
+        
+        gray = cv2.cvtColor(open_cv_image, cv2.COLOR_BGR2GRAY)
+        
+        # 3. Simple Thresholding (or Adaptive)
+        # Using simple binary thresholding is often better for receipts than adaptive if lighting is even-ish
+        # scanning effect.
+        _, thresh = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # 4. Check noise? If too noisy, maybe fallback to original gray
+        # But OTSU is usually good.
+        
+        return Image.fromarray(thresh)
     except Exception as e:
         print(f"Preprocessing error: {e}")
-        return Image.open(image_path) # Fallback
+        return Image.open(image_path)
 
 def extract_text_from_image(image_path):
     try:
-        # Use preprocessed image
         img = preprocess_image(image_path)
-        
-        # Determine PSM (Page Segmentation Mode)
-        # 3 = Fully automatic page segmentation, but no OSD. (Default)
-        # 4 = Assume a single column of text of variable sizes. (Good for receipts)
-        # 6 = Assume a single uniform block of text.
+        # --psm 4: Assume a single column of text of variable sizes
         text = pytesseract.image_to_string(img, config='--psm 4')
         return text
     except:
@@ -66,169 +121,116 @@ def extract_text_from_image(image_path):
 
 def extract_text_from_pdf(pdf_path):
     text = ""
-    # 1. Try Native PDF Text Extraction
     try:
         reader = PdfReader(pdf_path)
         for page in reader.pages:
-            extracted = page.extract_text()
-            if extracted:
-                text += extracted + "\n"
-    except Exception as e:
-        print(f"pypdf error: {e}")
-
-    # 2. Fallback to OCR if text is too short
+            t = page.extract_text()
+            if t: text += t + "\n"
+    except: pass
+    
     if len(text) < 50:
-        print("Text too short, attempting OCR...")
         try:
-            images = convert_from_path(pdf_path, first_page=1, last_page=1)
+            images = convert_from_path(pdf_path)
             for img in images:
-                # Preprocess PDF images too
-                enhancer = ImageEnhance.Contrast(img.convert('L'))
-                img = enhancer.enhance(1.5)
                 text += pytesseract.image_to_string(img)
-        except:
-            pass
-            
+        except: pass
     return text
 
 def parse_date(text):
+    # Kroger bottom format: 11/09/25 07:01pm
+    # Regex designed to catch line endings where dates often hide
     patterns = [
-        r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})',   # 12/31/2025
-        r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})',     # 2025-12-31
-        r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})',
-        r'(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?,?\s+(\d{4})'
+        r'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})',
+        r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})',
+        r'(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+(\d{1,2}),?\s+(\d{4})'
     ]
     
-    found_dates = []
-    current_year = datetime.now().year
+    candidates = []
     
     for line in text.split('\n'):
         for pat in patterns:
             match = re.search(pat, line, re.IGNORECASE)
             if match:
-                try:
-                    raw = match.group(0)
-                    for fmt in ["%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%b %d, %Y", "%B %d, %Y", "%d %b %Y", "%d %B %Y", "%m-%d-%Y"]:
-                        try:
-                            dt = datetime.strptime(raw, fmt)
-                            # Year correction
-                            if dt.year < 100: dt = dt.replace(year=2000+dt.year)
-                            
-                            # Sanity check: Date shouldn't be too far in future or past
-                            # E.g. limit to 2000 - CurrentYear+1
-                            if 2000 <= dt.year <= (current_year + 1):
-                                found_dates.append(dt)
-                        except:
-                            pass
-                except:
-                    continue
-    
-    if found_dates:
-        # Heuristic: The most recent date that isn't in the future is usually the transaction date.
-        # Or, just pick the first valid one. Let's sort by date descending.
-        # But receipts sometimes have 'Expiration Date' far in future? Usually not.
-        found_dates.sort(reverse=True)
-        best_date = found_dates[0]
-        return best_date.strftime("%y%m%d")
-
+                raw = match.group(0)
+                # Try formats
+                for fmt in ["%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d", "%b %d, %Y", "%m-%d-%y"]:
+                    try:
+                        dt = datetime.strptime(raw, fmt)
+                        if dt.year < 100: dt = dt.replace(year=2000+dt.year)
+                        if 2000 <= dt.year <= (datetime.now().year + 1):
+                            candidates.append(dt)
+                    except: pass
+                    
+    # Prefer dates that are NOT "today" if we found others (since today might be default)
+    # Actually just take most recent valid
+    if candidates:
+        candidates.sort(reverse=True)
+        return candidates[0].strftime("%y%m%d")
+        
     return datetime.now().strftime("%y%m%d")
 
 def parse_store(text):
     text_lower = text.lower()
+    # Kroger Specific
+    if "kroger" in text_lower: return "Kroger"
+    
     known = {
         "snappic": "Snappic", "paddle": "Snappic", "semrush": "SEMRush",
         "amazon": "Amazon", "uber": "Uber", "lyft": "Lyft", "starbucks": "Starbucks",
-        "target": "Target", "walmart": "Walmart", "google": "Google", "microsoft": "Microsoft",
-        "adobe": "Adobe", "apple": "Apple", "netflix": "Netflix", "costco": "Costco",
-        "shell": "Shell", "chevron": "Chevron", "ihop": "IHOP", "mcdonalds": "McDonalds",
-        "burger king": "BurgerKing", "domino": "Dominos", "home depot": "HomeDepot",
-        "lowes": "Lowes", "best buy": "BestBuy", "kroger": "Kroger", "publix": "Publix",
-        "whole foods": "WholeFoods", "trader joes": "TraderJoes", "walgreens": "Walgreens",
-        "cvs": "CVS", "7-eleven": "7-Eleven"
+        "target": "Target", "walmart": "Walmart", "google": "Google", "shell": "Shell"
     }
-    
-    for key, val in known.items():
-        if key in text_lower: return val
-            
-    # Fallback: First meaningful line
+    for k, v in known.items():
+        if k in text_lower: return v
+        
+    # Header fallback
     lines = [l.strip() for l in text.split('\n') if len(l.strip()) > 3]
-    lines = [l for l in lines if l.lower() not in ["via", "receipt", "invoice", "payment", "welcome", "customer copy"]]
-    
+    lines = [l for l in lines if l.lower() not in ["via", "receipt", "invoice", "copy"]]
     if lines:
-        candidate = lines[0]
-        candidate = re.sub(r'[^a-zA-Z0-9 ]', '', candidate).strip()
-        words = candidate.split()
-        if len(words) > 0:
-            return words[0][:15].capitalize() 
-            
+        return lines[0].split()[0][:15].capitalize()
     return "UnknownStore"
 
 def parse_payment(text):
     text_lower = text.lower()
     
-    def extract_last4(txt):
-        # Look for 4 digits that are possibly near "end", "x", "*", or "#"
-        matches = re.findall(r'(?:#|x|\*|\s)(\d{4})\b', txt)
-        # Filter commonly mistaken years
-        valid_digits = []
-        for m in matches:
-            if not m.startswith("202") and not m.startswith("201"):
-                valid_digits.append(m)
-        if valid_digits:
-            return valid_digits[-1] # Usually the last one found is the card (bottom of receipt)
-        return "XXXX"
-
-    # Keywords
-    if "visa" in text_lower: return f"Card-{extract_last4(text_lower)}"
-    if "mastercard" in text_lower or "mc" in text_lower: return f"Card-{extract_last4(text_lower)}"
-    if "amex" in text_lower or "american" in text_lower: return f"Card-{extract_last4(text_lower)}"
-    if "discover" in text_lower: return f"Card-{extract_last4(text_lower)}"
+    # Kroger: "Total Savings" "Total Coupons" often appear
+    # Look for "BALANCE" or "CASH" explicitly
     
-    # Generic "Card" keywords
-    if any(x in text_lower for x in ["credit card", "debit card", "ending in", "card #"]):
-        return f"Card-{extract_last4(text_lower)}"
-
-    if "paypal" in text_lower: return "PayPal"
-    if "cash" in text_lower and "change" not in text_lower: return "Cash"
-    if "check" in text_lower: return "Check"
-    
-    # Last ditch: if we see 4 masked digits ANYWHERE
-    if re.search(r'[\*xX]{4,}\s?-?\d{4}', text_lower):
-        return f"Card-{extract_last4(text_lower)}"
+    # Explicit Cash
+    if re.search(r'\bcash\b', text_lower):
+        # Ensure it's not "Cash Back" if possible, but usually Receipt says "Cash" implies pay method
+        return "Cash"
         
+    # Cards
+    # Find last 4
+    digits = re.findall(r'(?:#|x|\*|\s)(\d{4})\b', text_lower)
+    valid = [d for d in digits if not d.startswith("202")] # Filter years
+    
+    if "visa" in text_lower: return f"Card-{valid[-1] if valid else 'XXXX'}"
+    if "mastercard" in text_lower: return f"Card-{valid[-1] if valid else 'XXXX'}"
+    if "amex" in text_lower: return f"Card-{valid[-1] if valid else 'XXXX'}"
+    
+    if valid: return f"Card-{valid[-1]}"
+    
+    return "Cash" # Default to Cash if no card indicators found? Or Card-XXXX? 
+                  # Safer to detect "Cash" above. If nothing found, default Card-XXXX is safer for expenses.
     return "Card-XXXX"
 
 def parse_amount(text):
-    # Regex for currency: $1,234.56 or 1234.56
     matches = re.findall(r'\$?\s?(\d{1,3}(?:,\d{3})*\.\d{2})', text)
-    if not matches:
-        return 0.0
-    
-    values = []
-    for m in matches:
-        try:
-            clean = m.replace(',', '')
-            values.append(float(clean))
-        except:
-            continue
-            
-    if values:
-        # Heuristic: The largest amount is usually the Total.
-        return max(values)
+    if matches:
+        vals = [float(m.replace(',','')) for m in matches]
+        return max(vals)
     return 0.0
 
 def process_document(file_path):
     ext = os.path.splitext(file_path)[1].lower()
     text = ""
-    
     try:
-        if ext == '.pdf':
-            text = extract_text_from_pdf(file_path)
-        elif ext in ['.jpg', '.jpeg', '.png']:
-            text = extract_text_from_image(file_path)
+        if ext == '.pdf': text = extract_text_from_pdf(file_path)
+        else: text = extract_text_from_image(file_path)
     except Exception as e:
-        print(f"Extraction error: {e}")
-
+        print(f"Error: {e}")
+        
     return {
         "date": parse_date(text),
         "store": parse_store(text),

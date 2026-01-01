@@ -6,3 +6,5 @@ pillow
 pdf2image
 aiofiles
 pypdf
+opencv-python-headless
+numpy
