@@ -88,6 +88,15 @@ def extract_text_from_image(image_path):
         # 1. Get the "Clean" receipt image
         img = smart_crop_receipt(image_path)
         
+        # DEBUG: Save what the computer sees!
+        # This helps us tune the cropping/contrast
+        debug_path = os.path.join(os.path.dirname(__file__), "static", "debug_last_crop.jpg")
+        try:
+            img.save(debug_path)
+            logger.info(f"Saved debug crop to {debug_path}")
+        except Exception as e:
+            logger.error(f"Failed to save debug image: {e}")
+        
         # 2. OCR with PSM 6 (Assume single uniform block of text) helps top-to-bottom reading
         # PSM 4 was column based. PSM 6 is better for a single receipt column.
         text = pytesseract.image_to_string(img, config='--psm 6')
