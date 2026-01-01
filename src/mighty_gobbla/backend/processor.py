@@ -2,14 +2,20 @@ import re
 import os
 import numpy as np
 from datetime import datetime
+import logging
+
+# Setup Logger
+logger = logging.getLogger("MightyGobbla.Processor")
 
 try:
-    from PIL import Image
+    from PIL import Image, ImageOps, ImageEnhance
     import pytesseract
     from pdf2image import convert_from_path
     import cv2
-except ImportError:
-    pass
+except ImportError as e:
+    logger.error(f"CRITICAL IMPORT ERROR: {e}")
+    # We re-raise so the app crashes and tells us, instead of failing silently later
+    raise e
 
 try:
     from pypdf import PdfReader
@@ -77,7 +83,7 @@ def smart_crop_receipt(image_path):
         return Image.fromarray(cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB))
         
     except Exception as e:
-        print(f"Smart Crop Failed: {e}")
+        logger.error(f"Smart Crop Failed: {e}")
         return Image.open(image_path)
 
 def preprocess_image(image_path):
@@ -107,7 +113,7 @@ def preprocess_image(image_path):
         
         return Image.fromarray(thresh)
     except Exception as e:
-        print(f"Preprocessing error: {e}")
+        logger.error(f"Preprocessing error: {e}")
         return Image.open(image_path)
 
 def extract_text_from_image(image_path):
@@ -229,7 +235,7 @@ def process_document(file_path):
         if ext == '.pdf': text = extract_text_from_pdf(file_path)
         else: text = extract_text_from_image(file_path)
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error(f"Error processing doc: {e}")
         
     return {
         "date": parse_date(text),
