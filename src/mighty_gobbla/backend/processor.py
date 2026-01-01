@@ -1,4 +1,3 @@
-```python
 import re
 from datetime import datetime
 import os
@@ -237,4 +236,3 @@ def process_document(file_path):
         "amount": parse_amount(text),
         "raw_text_debug": text[:200]
     }
-```
