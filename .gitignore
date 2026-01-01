@@ -1,0 +1,37 @@
+# Output and temporary files
+output/
+*.log
+*.tmp
+.tmp*
+.tmp/
+.tmp.driveupload/
+gobble_history.json
+
+# Environment and secrets
+.env
+*.key
+secrets/
+credentials.json
+token.json
+loom_private_key.pem
+.mighty_gobbla_settings.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
