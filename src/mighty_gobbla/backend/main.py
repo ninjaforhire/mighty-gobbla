@@ -42,22 +42,51 @@ async def upload_files_endpoint(files: List[UploadFile] = File(...)):
     results = []
     for file in files:
         try:
-            # Save temporary file
-            temp_path = f".tmp/{file.filename}"
-            os.makedirs(".tmp", exist_ok=True)
+            # Save file to public static folder for URL access
+            uploads_dir = os.path.join(STATIC_DIR, "uploads")
+            if not os.path.exists(uploads_dir):
+                os.makedirs(uploads_dir)
             
-            with open(temp_path, "wb") as buffer:
+            # Use original extension
+            ext = os.path.splitext(file.filename)[1]
+            temp_name = f"temp_{file.filename}" 
+            # We'll rename later, but for now we need a path
+            
+            save_path = os.path.join(uploads_dir, file.filename)
+            
+            with open(save_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             
             # Process the file
-            processed_info = process_document(temp_path)
+            processed_info = process_document(save_path)
             
             # Generate Naming Convention (for Notion & History)
             # Format: YYMMDD-Store-Payment
-            ext = os.path.splitext(file.filename)[1]
             base_new_name = f"{processed_info['date']}-{processed_info['store']}-{processed_info['payment']}"
             base_new_name = base_new_name.replace("/", "").replace(":", "")
             new_name = f"{base_new_name}{ext}"
+            
+            # Rename in uploads folder to match convention
+            final_path = os.path.join(uploads_dir, new_name)
+            
+            # Avoid overwriting existing
+            counter = 1
+            while os.path.exists(final_path):
+                new_name = f"{base_new_name}_{counter}{ext}"
+                final_path = os.path.join(uploads_dir, new_name)
+                counter += 1
+                
+            os.rename(save_path, final_path)
+            
+            # Add Public URL for Notion
+            # Assuming standard port 8000 and direct IP access for now.
+            # Ideally this comes from ENV or headers. using hardcoded IP for VPS match or relative?
+            # Notion needs ABSOLUTE URL.
+            # We can try to infer host from request, but we are inside async loop.
+            # Let's assume the user's host is correct.
+            # Actually, let's just construct it relative to the server ROOT if we knew it.
+            # HARDCODED for VPS:
+            processed_info['file_url'] = f"http://72.60.27.66:8000/static/uploads/{new_name}"
             
             # For uploads, we can't rename the source file on the phone, 
             # but we use the correct name for Notion/History.

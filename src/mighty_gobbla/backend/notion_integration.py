@@ -107,6 +107,24 @@ def add_to_notion_expenses(file_data):
     if last_4:
         payload["properties"]["Last 4 of Card"] = {"rich_text": [{"text": {"content": last_4}}]}
 
+    # Add URL to "Receipt/Documentation" property
+    file_url = file_data.get('file_url')
+    if file_url:
+        payload["properties"]["Receipt/Documentation"] = {"url": file_url}
+
+    # Add Receipt Image to Page Content (Embed as fallback/visual)
+    if file_url:
+        payload["children"] = [
+            {
+                "object": "block",
+                "type": "image",
+                "image": {
+                    "type": "external",
+                    "external": {"url": file_url}
+                }
+            }
+        ]
+
     # Check for duplicates (Broadened: Date Paid only, then filter in Python)
     # We query all entries for this Date.
     query_payload = {
