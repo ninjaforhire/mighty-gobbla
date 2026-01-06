@@ -40,13 +40,15 @@ def process_document(file_path):
     logger.info(f"Sending {file_path} to Gemini Vision...")
     
     # Candidate models to try in order of preference
-    # 'gemini-1.5-flash' is best balance. 'gemini-pro-vision' is legacy fallback.
+    # Updated based on server logs showing 2.0/2.5 availability
     candidates = [
-        "gemini-1.5-flash",
-        "models/gemini-1.5-flash",
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-pro", 
-        "gemini-pro-vision"
+        "gemini-2.0-flash",
+        "models/gemini-2.0-flash",
+        "gemini-2.5-flash",
+        "models/gemini-2.5-flash",
+        "gemini-flash-latest",
+        "models/gemini-flash-latest",
+        "models/gemini-1.5-flash"
     ]
 
     # Read file bytes once
