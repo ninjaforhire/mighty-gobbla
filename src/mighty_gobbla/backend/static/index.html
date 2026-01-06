@@ -33,75 +33,63 @@
 
             <!-- Tabs -->
             <div class="tabs">
-                <button class="tab-btn active" onclick="switchTab('gobble')">Local PC</button>
-                <button class="tab-btn" onclick="switchTab('mobile')">Mobile 📷</button>
+                <button class="tab-btn active" onclick="switchTab('mobile')">Mobile 📷</button>
+                <button class="tab-btn" onclick="switchTab('gobble')">Local PC</button>
                 <button class="tab-btn" onclick="switchTab('settings')">Settings 🧑‍🍳</button>
             </div>
 
-            <!-- Gobble Screen (PC) -->
-            <div id="gobble-screen" class="screen active">
-
-                <div class="mode-switch" style="margin-bottom: 30px;">
-                    <h3>Single File (Rename)</h3>
-                    <p class="small-text" style="color: #ccc; margin-bottom: 10px;">
-                        Full path to one receipt file.
-                    </p>
-                    <div style="display:flex; gap:10px;">
-                        <input type="text" id="single-file-path" placeholder="C:\Path\To\Receipt.pdf" class="input-text"
-                            style="flex-grow:1;">
-                        <button class="gobble-btn" style="width: auto; padding: 0 20px;"
-                            onclick="gobbleSinglePath()">GOBBLE!</button>
-                    </div>
-                </div>
-
-                <hr style="border: 1px solid rgba(255,255,255,0.1);">
-
-                <div class="mode-switch" style="margin-top: 30px;">
-                    <h3>Folder (Batch)</h3>
-                    <p class="small-text" style="color: #ccc; margin-bottom: 10px;">
-                        Process all files in a folder.
-                    </p>
-                    <div style="display:flex; gap:10px;">
-                        <input type="text" id="folder-path" placeholder="C:\Path\To\Folder" class="input-text"
-                            style="flex-grow:1;">
-                        <button class="gobble-btn" style="width: auto; padding: 0 20px;"
-                            onclick="gobbleFolder()">GOBBLE!</button>
-                    </div>
-                </div>
-
-            </div>
-
-            <!-- Mobile Screen -->
-            <div id="mobile-screen" class="screen">
-                <div class="mode-switch" style="text-align: center; padding: 40px 20px;">
-                    <h3 style="margin-bottom: 20px;">Snap a Receipt!</h3>
+            <!-- Mobile Screen (Active Default) -->
+            <div id="mobile-screen" class="screen active">
+                <div class="mode-switch" style="text-align: center; padding: 20px 0;">
+                    <h3 style="margin-bottom: 20px; border:none;">Snap a Receipt!</h3>
 
                     <!-- Hidden Input -->
                     <input type="file" id="camera-input" capture="environment" accept="image/*" style="display:none;">
 
                     <!-- Big Button -->
                     <button class="gobble-btn"
-                        style="font-size: 1.5rem; padding: 20px 40px; width: 100%; border-radius: 20px;"
+                        style="font-size: 1.5rem; padding: 20px; width: 100%; border-radius: 20px;"
                         onclick="document.getElementById('camera-input').click()">
                         📸 OPEN CAMERA
                     </button>
 
-                    <p class="small-text" style="color: #aaa; margin-top: 20px;">
-                        Taking a photo will upload it to your server,<br>process it, and save to Notion.
+                    <p class="small-text" style="color: #666; margin-top: 20px;">
+                        Tap to upload. Turkey will auto-scan.
                     </p>
                 </div>
             </div>
 
-            <!-- Settings Screen -->
-            <div id="settings-screen" class="screen">
-                <h2>Cooking Settings</h2>
-                <div class="settings-panel">
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="notion-toggle" onchange="saveSettings()">
-                        <span class="slider"></span>
-                        Gobble to Notion?
-                    </label>
+            <!-- Gobble Screen (PC) -->
+            <div id="gobble-screen" class="screen">
+
+                <div class="mode-switch" style="margin-bottom: 30px;">
+                    <h3>Single File (Rename)</h3>
+                    <p class="small-text" style="color: #888; margin-bottom: 10px;">
+                        Full path to one receipt file.
+                    </p>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="single-file-path" placeholder="C:\Path\To\Receipt.pdf" class="input-text"
+                            style="flex-grow:1;">
+                        <button class="gobble-btn" style="width: auto; padding: 0 20px; margin-top:10px;"
+                            onclick="gobbleSinglePath()">GOBBLE</button>
+                    </div>
                 </div>
+
+                <hr style="border: 1px solid rgba(255,255,255,0.05);">
+
+                <div class="mode-switch" style="margin-top: 30px;">
+                    <h3>Folder (Batch)</h3>
+                    <p class="small-text" style="color: #888; margin-bottom: 10px;">
+                        Process all files in a folder.
+                    </p>
+                    <div style="display:flex; gap:10px;">
+                        <input type="text" id="folder-path" placeholder="C:\Path\To\Folder" class="input-text"
+                            style="flex-grow:1;">
+                        <button class="gobble-btn" style="width: auto; padding: 0 20px; margin-top:10px;"
+                            onclick="gobbleFolder()">GOBBLE</button>
+                    </div>
+                </div>
+
             </div>
 
         </div>
