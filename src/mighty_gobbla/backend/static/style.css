@@ -394,6 +394,10 @@ tr:hover {
     /* Ensure on top */
 }
 
+.overlay.hidden {
+    display: none !important;
+}
+
 /* Toggle Switch */
 .toggle-switch {
     display: flex;
