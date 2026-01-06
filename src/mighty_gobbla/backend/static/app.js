@@ -221,51 +221,95 @@ async function loadHistory() {
     }
 }
 
-function renderHistory(items) {
-    const tbody = document.getElementById('history-body');
-    tbody.innerHTML = items.map(item => `
-        <tr>
-            <td>${item.filename}</td>
-            <td>${item.details.date}</td>
-            <td>${item.details.store}</td>
-            <td>${item.details.payment}</td>
-            <td>${item.directory.slice(0, 30)}...</td>
-            <td><button class="del-btn" onclick="deleteEntry(${item.id})">🗑️</button></td>
-        </tr>
+// Clear container
+const container = document.getElementById('history-table-container');
+// We are replacing the TABLE with a LIST container in JS or expects HTML change?
+// Let's assume we replace 'history-body' content but we need to change structure.
+// simpler: Let's render 'cards' directly into the container if we change HTML.
+// For now, let's inject a new structure.
+
+// Better approach: Update HTML first to remove table, then update this.
+// But since I can't do simultaneous, I will assume HTML structure is compatible or I replace innerHTML of a wrapper.
+// Let's target 'history-body' parent usually, but let's look at HTML.
+// HTML has <div class="table-container"> <table id="history-table"> ...
+
+// I will replace the table-container content entirely with div cards.
+const tableContainer = document.querySelector('.table-container');
+
+if (items.length === 0) {
+    tableContainer.innerHTML = '<p style="text-align:center; padding:20px; color:#666;">No history yet. Start gobbling!</p>';
+    return;
+}
+
+tableContainer.innerHTML = items.map(item => `
+        <div class="history-card" onclick="toggleCard(this)">
+            <div class="card-header">
+                <span class="card-title">${item.filename}</span>
+                <span class="card-arrow">▼</span>
+            </div>
+            <div class="card-details" style="display:none;">
+                <p><strong>Date:</strong> ${item.details.date}</p>
+                <p><strong>Store:</strong> ${item.details.store}</p>
+                <p><strong>Payment:</strong> ${item.details.payment}</p>
+                <p><strong>Amount:</strong> $${item.details.amount}</p>
+                <p class="small-text">Path: ${item.directory}</p>
+                <button class="del-btn" onclick="deleteEntry(event, ${item.id})" style="margin-top:10px; color:#ff4444;">DELETE ENTRY 🗑️</button>
+            </div>
+        </div>
     `).join('');
 }
 
-async function deleteEntry(id) {
-    if (!confirm("Burp? Delete this?")) return;
-    await fetch(`${API_URL}/history/${id}`, { method: 'DELETE' });
-    loadHistory();
-}
+function toggleCard(card) {
+    const details = card.querySelector('.card-details');
+    const arrow = card.querySelector('.card-arrow');
 
-async function clearHistory() {
-    if (!confirm("Wait! Delete ALL history?")) return;
-    await fetch(`${API_URL}/history`, { method: 'DELETE' });
-    loadHistory();
-}
-
-function nextPage() {
-    currentPage++;
-    loadHistory();
-}
-
-function prevPage() {
-    if (currentPage > 1) {
-        currentPage--;
-        loadHistory();
+    if (details.style.display === 'none') {
+        details.style.display = 'block';
+        arrow.style.transform = 'rotate(180deg)';
+        card.classList.add('expanded');
+    } else {
+        details.style.display = 'none';
+        arrow.style.transform = 'rotate(0deg)';
+        card.classList.remove('expanded');
     }
 }
 
-// Overlay
-function showOverlay(show) {
-    const el = document.getElementById('overlay');
-    if (show) el.classList.remove('hidden');
-    else el.classList.add('hidden');
-}
+function deleteEntry(e, id) {
+    e.stopPropagation(); // Prevent card toggle
+    if (!confirm("Burp? Delete this?")) return;
+    fetch(`${API_URL}/history/${id}`, { method: 'DELETE' }).then(() => loadHistory());
 
-// Init
-loadHistory();
-loadSettings();
+    async function deleteEntry(id) {
+        if (!confirm("Burp? Delete this?")) return;
+        await fetch(`${API_URL}/history/${id}`, { method: 'DELETE' });
+        loadHistory();
+    }
+
+    async function clearHistory() {
+        if (!confirm("Wait! Delete ALL history?")) return;
+        await fetch(`${API_URL}/history`, { method: 'DELETE' });
+        loadHistory();
+    }
+
+    function nextPage() {
+        currentPage++;
+        loadHistory();
+    }
+
+    function prevPage() {
+        if (currentPage > 1) {
+            currentPage--;
+            loadHistory();
+        }
+    }
+
+    // Overlay
+    function showOverlay(show) {
+        const el = document.getElementById('overlay');
+        if (show) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+    }
+
+    // Init
+    loadHistory();
+    loadSettings();

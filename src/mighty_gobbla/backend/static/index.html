@@ -92,30 +92,32 @@
 
             </div>
 
+            <!-- Settings Screen -->
+            <div id="settings-screen" class="screen">
+                <h2>Cooking Settings</h2>
+                <div class="settings-panel">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="notion-toggle" onchange="saveSettings()">
+                        <span class="slider"></span>
+                        Gobble to Notion?
+                    </label>
+                </div>
+
+                <div style="margin-top: 50px; text-align: center; color: #444;">
+                    <p>App by Andrew Webber</p>
+                </div>
+            </div>
+
         </div>
 
         <!-- Results / History Area -->
         <div class="history-panel">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>Gobbled to Notion (Last 200)</h2>
-                <button class="clear-btn" onclick="clearHistory()">Clear History</button>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:15px;">
+                <h2>Gobbled History</h2>
+                <button class="clear-btn" onclick="clearHistory()">Clear All</button>
             </div>
-            <div class="table-container">
-                <table id="history-table">
-                    <thead>
-                        <tr>
-                            <th>Filename (New)</th>
-                            <th>Date</th>
-                            <th>Store</th>
-                            <th>Payment</th>
-                            <th>Original Path</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="history-body">
-                        <!-- Rows injected here -->
-                    </tbody>
-                </table>
+            <div class="table-container" id="history-table-container">
+                <!-- JS will inject cards here -->
             </div>
             <div class="pagination">
                 <button onclick="prevPage()">Prev</button>
