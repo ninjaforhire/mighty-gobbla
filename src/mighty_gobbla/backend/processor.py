@@ -31,7 +31,8 @@ def process_document(file_path):
         # Uploading file to Gemini
         # For efficiency with the API, we interpret the image directly
         # Note: 'gemini-1.5-flash' is fast and cheap/free for this.
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        # Using 'gemini-1.5-flash-latest' as 'gemini-1.5-flash' alias can be unstable or region locked
+        model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
         # Read file bytes
         # Supported mime types: image/png, image/jpeg, application/pdf
