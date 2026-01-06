@@ -408,3 +408,8 @@ tr:hover {
 input:checked+.slider {
     background-color: var(--neon-green);
 }
+
+/* Remove Thought Bubble styling completely */
+.thought-bubble {
+    display: none !important;
+}
