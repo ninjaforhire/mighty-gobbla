@@ -499,13 +499,69 @@ tr:hover {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(5px);
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(8px);
     display: flex;
     justify-content: center;
     align-items: center;
     z-index: 9999;
-    /* Ensure on top */
+}
+
+.overlay-content {
+    /* Ensure content box is centered and no width restrictions cause left-align */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    color: var(--neon-green);
+    width: 100%;
+    max-width: 400px;
+}
+
+.turkey-eating {
+    font-size: 6rem;
+    position: relative;
+    /* Use margin to ensure space */
+    margin: 20px;
+    animation: gobble-scale 0.6s infinite alternate;
+}
+
+@keyframes gobble-scale {
+    from {
+        transform: scale(1);
+    }
+
+    to {
+        transform: scale(1.1);
+    }
+}
+
+/* Fart puff separate to avoid layout shift */
+.turkey-eating::after {
+    content: "💨";
+    position: absolute;
+    right: -20px;
+    bottom: 5px;
+    font-size: 3rem;
+    opacity: 0;
+    animation: fart-puff 1s infinite 0.5s;
+}
+
+@keyframes fart-puff {
+    0% {
+        opacity: 0;
+        transform: translateX(0) scale(0.5);
+    }
+
+    50% {
+        opacity: 1;
+        transform: translateX(20px) scale(1);
+    }
+
+    100% {
+        opacity: 0;
+        transform: translateX(40px) scale(1.5);
+    }
 }
 
 .overlay.hidden {

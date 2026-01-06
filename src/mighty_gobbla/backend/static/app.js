@@ -486,8 +486,8 @@ tableContainer.innerHTML = items.map(item => `
                 <p><strong>Store:</strong> ${item.details.store}</p>
                 <p><strong>Payment:</strong> ${item.details.payment}</p>
                 <p><strong>Amount:</strong> $${item.details.amount}</p>
-                <p class="small-text">Path: ${item.directory}</p>
-                <button class="del-btn" onclick="deleteEntry(event, ${item.id})" style="margin-top:10px; color:#ff4444;">DELETE ENTRY 🗑️</button>
+                <p class="small-text">Path: <span style="font-size:0.8em; color:#666;">${item.directory.slice(0, 30)}...</span></p>
+                <button class="del-btn" onclick="deleteEntry(event, ${item.id})" style="margin-top:10px; color:#ff4444; border:1px solid #ff4444; padding:5px 10px; border-radius:5px;">DELETE ENTRY 🗑️</button>
             </div>
         </div>
     `).join('');
@@ -510,40 +510,34 @@ function toggleCard(card) {
 
 function deleteEntry(e, id) {
     e.stopPropagation(); // Prevent card toggle
-    if (!confirm("Burp? Delete this?")) return;
+    if (!confirm("Delete this entry?")) return;
     fetch(`${API_URL}/history/${id}`, { method: 'DELETE' }).then(() => loadHistory());
+}
 
-    async function deleteEntry(id) {
-        if (!confirm("Burp? Delete this?")) return;
-        await fetch(`${API_URL}/history/${id}`, { method: 'DELETE' });
-        loadHistory();
-    }
-
-    async function clearHistory() {
-        if (!confirm("Wait! Delete ALL history?")) return;
-        await fetch(`${API_URL}/history`, { method: 'DELETE' });
-        loadHistory();
-    }
-
-    function nextPage() {
-        currentPage++;
-        loadHistory();
-    }
-
-    function prevPage() {
-        if (currentPage > 1) {
-            currentPage--;
-            loadHistory();
-        }
-    }
-
-    // Overlay
-    function showOverlay(show) {
-        const el = document.getElementById('overlay');
-        if (show) el.classList.remove('hidden');
-        else el.classList.add('hidden');
-    }
-
-    // Init
+async function clearHistory() {
+    if (!confirm("Are you sure??")) return;
+    await fetch(`${API_URL}/history`, { method: 'DELETE' });
     loadHistory();
-    loadSettings();
+}
+
+function nextPage() {
+    currentPage++;
+    loadHistory();
+}
+
+function prevPage() {
+    if (currentPage > 1) {
+        currentPage--;
+        loadHistory();
+    }
+}
+
+function showOverlay(show) {
+    const el = document.getElementById('overlay');
+    if (show) el.classList.remove('hidden');
+    else el.classList.add('hidden');
+}
+
+// Init
+loadHistory();
+loadSettings();
