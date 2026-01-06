@@ -20,6 +20,18 @@ try:
 except Exception as e:
     logger.error(f"Failed to configure Gemini: {e}")
 
+def list_available_models():
+    """List all models supporting generateContent."""
+    try:
+        available = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                available.append(m.name)
+        return available
+    except Exception as e:
+        logger.error(f"Could not list models: {e}")
+        return []
+
 def process_document(file_path):
     """
     Uses Google Gemini Flash to extract structured data from receipts.
@@ -27,15 +39,18 @@ def process_document(file_path):
     """
     logger.info(f"Sending {file_path} to Gemini Vision...")
     
-    try:
-        # Uploading file to Gemini
-        # For efficiency with the API, we interpret the image directly
-        # Note: 'gemini-1.5-flash' is fast and cheap/free for this.
-        # Using 'gemini-1.5-flash-latest' as 'gemini-1.5-flash' alias can be unstable or region locked
-        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    # Candidate models to try in order of preference
+    # 'gemini-1.5-flash' is best balance. 'gemini-pro-vision' is legacy fallback.
+    candidates = [
+        "gemini-1.5-flash",
+        "models/gemini-1.5-flash",
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-pro", 
+        "gemini-pro-vision"
+    ]
 
-        # Read file bytes
-        # Supported mime types: image/png, image/jpeg, application/pdf
+    # Read file bytes once
+    try:
         ext = os.path.splitext(file_path)[1].lower()
         mime_type = "image/jpeg"
         if ext == ".png": mime_type = "image/png"
@@ -43,8 +58,11 @@ def process_document(file_path):
         
         with open(file_path, "rb") as f:
             file_data = f.read()
+    except Exception as e:
+         logger.error(f"Failed to read file: {e}")
+         return {"store": "FileError", "amount": 0.0, "date": "240101"}
 
-        prompt = """
+    prompt = """
         You are an expert receipt scanner AI. 
         Analyze this image and extract the following fields in strict JSON format:
         
@@ -60,36 +78,53 @@ def process_document(file_path):
         Return ONLY valid JSON.
         """
 
-        # Generate content
-        response = model.generate_content([
-            {'mime_type': mime_type, 'data': file_data},
-            prompt
-        ])
-        
-        # Clean response (remove markdown code blocks if any)
-        raw_text = response.text
-        clean_json = raw_text.replace("```json", "").replace("```", "").strip()
-        
-        data = json.loads(clean_json)
-        
-        # Add debug info
-        data["raw_text_debug"] = "Gemini Processing Successful"
-        
-        # Validate keys exist
-        if "date" not in data: data["date"] = datetime.now().strftime("%y%m%d")
-        if "store" not in data: data["store"] = "Unknown"
-        if "payment" not in data: data["payment"] = "Unknown"
-        if "amount" not in data: data["amount"] = 0.0
-        
-        return data
+    last_error = None
+    
+    for model_name in candidates:
+        try:
+            logger.info(f"Attempting with model: {model_name}")
+            model = genai.GenerativeModel(model_name)
 
-    except Exception as e:
-        logger.error(f"Gemini Vision Failed: {e}")
-        # Fallback to empty/error structure
-        return {
-            "date": datetime.now().strftime("%y%m%d"),
-            "store": "Error",
-            "payment": "Unknown",
-            "amount": 0.0,
-            "raw_text_debug": f"Error: {str(e)}"
-        }
+            # Generate content
+            response = model.generate_content([
+                {'mime_type': mime_type, 'data': file_data},
+                prompt
+            ])
+            
+            # Clean response (remove markdown code blocks if any)
+            raw_text = response.text
+            clean_json = raw_text.replace("```json", "").replace("```", "").strip()
+            
+            data = json.loads(clean_json)
+            
+            # Add debug info
+            data["raw_text_debug"] = f"Gemini Success ({model_name})"
+            logger.info(f"Success with {model_name}")
+            
+            # Validate keys exist
+            if "date" not in data: data["date"] = datetime.now().strftime("%y%m%d")
+            if "store" not in data: data["store"] = "Unknown"
+            if "payment" not in data: data["payment"] = "Unknown"
+            if "amount" not in data: data["amount"] = 0.0
+            
+            return data
+
+        except Exception as e:
+            logger.warning(f"Failed with {model_name}: {e}")
+            last_error = e
+            # Continue to next candidate
+            
+    # If we get here, all failed
+    logger.error("All Gemini models failed.")
+    
+    # Log available models to help debug
+    available = list_available_models()
+    logger.info(f"Available models on server: {available}")
+    
+    return {
+        "date": datetime.now().strftime("%y%m%d"),
+        "store": "Error",
+        "payment": "Unknown",
+        "amount": 0.0,
+        "raw_text_debug": f"All Gemini Models Failed. Available: {available}. Last Error: {str(last_error)}"
+    }
