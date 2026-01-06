@@ -57,6 +57,22 @@
                         Tap to upload. Turkey will auto-scan.
                     </p>
                 </div>
+
+                <hr style="border: 1px solid rgba(255,255,255,0.1); width: 80%; margin: 0 auto;">
+
+                <div class="mode-switch" style="text-align: center; padding: 20px 0;">
+                    <h3 style="margin-bottom: 20px; border:none;">Or Upload File</h3>
+
+                    <!-- Hidden Input for File Picker -->
+                    <input type="file" id="mobile-file-input" accept="image/*,application/pdf" style="display:none;">
+
+                    <!-- Big Button -->
+                    <button class="gobble-btn"
+                        style="font-size: 1.2rem; padding: 15px; width: 80%; border-radius: 20px; background: var(--bg-dark); border: 2px solid var(--neon-green); color: var(--neon-green);"
+                        onclick="document.getElementById('mobile-file-input').click()">
+                        📂 PICK FROM DEVICE
+                    </button>
+                </div>
             </div>
 
             <!-- Gobble Screen (PC) -->
